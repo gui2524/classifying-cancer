@@ -3,8 +3,8 @@ import cv2
 import glob
 import numpy as np
 import logging
-from sklearn.utils import shuffle
-from cnn_image_classifier.DataSet import DataSet
+import DataSet
+import random
 
 
 def load_data(image_dir, image_size):
@@ -25,7 +25,7 @@ def load_data(image_dir, image_size):
         index = training_dirs.index(category)
         binary_cls_map[index] = category
 
-        logging.debug("Loading resource: %s images [Index: %s]" % (category, index))
+        logging.info("Loading resource: %s images [Index: %s]" % (category, index))
 
         path = os.path.join(image_dir, category, '*g')
         file_list = glob.glob(path)
@@ -56,7 +56,6 @@ def read_img_sets(image_dir, image_size, validation_size=0):
     data_sets = DataSets()
 
     images, labels, ids, cls, cls_map = load_data(image_dir, image_size)
-    images, labels, ids, cls = shuffle(images, labels, ids, cls)
 
     if isinstance(validation_size, float):
         validation_size = int(validation_size * images.shape[0])
@@ -71,7 +70,7 @@ def read_img_sets(image_dir, image_size, validation_size=0):
     train_ids = ids[validation_size:]
     train_cls = cls[validation_size:]
 
-    data_sets.train = DataSet(train_images, train_labels, train_ids, train_cls)
-    data_sets.test = DataSet(test_images, test_labels, test_ids, test_cls)
+    data_sets.train = DataSet.DataSet(train_images, train_labels, train_ids, train_cls)
+    data_sets.test = DataSet.DataSet(test_images, test_labels, test_ids, test_cls)
 
     return data_sets, cls_map

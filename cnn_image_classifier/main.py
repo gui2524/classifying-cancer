@@ -1,7 +1,6 @@
-from cnn_image_classifier.FileSystemManager import FileSystemManager
-from cnn_image_classifier.DownloadManager import DownloadManager
-from cnn_image_classifier.cnn_model import train, predict
-from cnn_image_classifier.sys_utils import graceful_exit
+import FileSystemManager
+import cnn_model
+import sys_utils
 import logging
 
 
@@ -30,9 +29,6 @@ if int(mode_input) == 1:
         file_manager = FileSystemManager(image_directory, model_directory)
         file_manager.clean_run()
 
-        download_manager = DownloadManager(source_data)
-        download_manager.download()
-
         extract_dir = file_manager.extract_archive(source_archive)
         file_manager.remove_files_except('.png')
         file_manager.data_science_fs(category0='benign', category1='malignant')
@@ -42,18 +38,18 @@ if int(mode_input) == 1:
         pass
 
     else:
-        graceful_exit()
+        sys_utils.graceful_exit()
 
-    train(image_directory, model_directory)
+    cnn_model.train(image_directory, model_directory)
 
 
 elif int(mode_input) == 2:
 
     print("We will now randomly select an image from our prediction set (previously unseen by our model).")
 
-    prediction, ground_truth = predict(image_directory, model_directory)
+    prediction, ground_truth = cnn_model.predict(image_directory, model_directory)
 
     print("Prediction: This is a %s cell.\nValidation: It was a %s cell" % (prediction, ground_truth))
 
 else:
-    graceful_exit()
+    sys_utils.graceful_exit()
