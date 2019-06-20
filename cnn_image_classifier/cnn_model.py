@@ -211,7 +211,7 @@ def restore_or_initialize(session, saver, checkpoint_dir):
         tf.global_variables_initializer().run()
 
 
-def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=128, training_epochs=50):
+def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=10, training_epochs=50):
 
     log_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/logs/cnn_with_summaries')
     checkpoint_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/model')
@@ -280,9 +280,25 @@ def predict(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=1):
         saver = tf.train.Saver()
         restore_or_initialize(sess, saver, checkpoint_dir)
 
-        x_predict_batch, y_predict_batch, _, cls_predict_batch = data.train.next_batch(batch_size=1)
-        x_predict_batch = x_predict_batch.reshape(batch_size, flat_img_size)
+        acertou = 0
+        errou = 0
 
-        prediction = sess.run([tf.argmax(predict_op, dimension=1)], feed_dict={x: x_predict_batch, keep_prob: 1.0})
+        batch_count = int(data.train.num_examples / batch_size)
+        for i in range(batch_count):
+            x_predict_batch, y_predict_batch, _, cls_predict_batch = data.train.next_batch(batch_size=1)
+            x_predict_batch = x_predict_batch.reshape(batch_size, flat_img_size)
+
+            prediction = sess.run([tf.argmax(predict_op, dimension=1)], feed_dict={x: x_predict_batch, keep_prob: 1.0})
+
+            if category_ref[prediction[0][0]] == cls_predict_batch[0]:
+                print("Acertou: ", category_ref[prediction[0][0]], cls_predict_batch[0])
+                acertou += 1
+            else:
+                print("Errou: ", category_ref[prediction[0][0]], cls_predict_batch[0])
+                errou += 1
+
+        print("Porcentagem = %d", (acertou * 100 / (acertou + errou)))
+
+
 
         return category_ref[prediction[0][0]], cls_predict_batch[0]

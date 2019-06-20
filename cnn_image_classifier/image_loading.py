@@ -31,7 +31,6 @@ def load_data(image_dir, image_size):
         file_list = glob.glob(path)
 
         for file in file_list:
-            print("\n" + str(file))
             image = cv2.imread(file)
             image = cv2.resize(image, (image_size, image_size), cv2.INTER_LINEAR)
             images.append(image)
