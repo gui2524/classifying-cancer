@@ -1,7 +1,7 @@
 import os
 import logging
 import tensorflow as tf
-from cnn_image_classifier.image_loading import read_img_sets
+import image_loading
 
 
 def flat_img_shape(img_size, channels):
@@ -206,6 +206,7 @@ def restore_or_initialize(session, saver, checkpoint_dir):
             "Resource not found: CNN Model [%s]. Model will now be trained from scratch.",
             os.path.join(checkpoint_dir, 'model.ckpt'))
 
+        os.rmdir(checkpoint_dir)
         os.makedirs(checkpoint_dir)
         tf.global_variables_initializer().run()
 
@@ -215,7 +216,8 @@ def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=128, tr
     log_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/logs/cnn_with_summaries')
     checkpoint_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/model')
 
-    data, category_ref = read_img_sets(img_dir + '/train', img_size, validation_size=.2)
+    data, category_ref = image_loading.read_img_sets(img_dir + '/train', img_size, validation_size=.2)
+    print(data)
 
     flat_img_size = flat_img_shape(img_size, colour_channels)
 
@@ -234,11 +236,12 @@ def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=128, tr
     with tf.Session() as sess:
 
         restore_or_initialize(sess, saver, checkpoint_dir)
-
+        print("\n\n" + str(training_epochs))
+        print("\n\n" + str(data.train.num_examples))
+        print("\n\n" + str(batch_size))
         for epoch in range(training_epochs):
 
             batch_count = int(data.train.num_examples / batch_size)
-
             for i in range(batch_count):
 
                 x_batch, y_true_batch, _, cls_batch = data.train.next_batch(batch_size)
@@ -252,17 +255,17 @@ def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=128, tr
 
                 writer.add_summary(summary, epoch * batch_count + i)
 
-            if epoch % 5 == 0:
-                log_progress(sess, saver, cost, accuracy, epoch,
-                             test_feed_dict={x: x_test_batch, y_true: y_test_batch, keep_prob: 1.0},
-                             checkpoint_path=os.path.join(checkpoint_dir, 'model.ckpt'))
+                if epoch % 5 == 0:
+                    log_progress(sess, saver, cost, accuracy, epoch,
+                                 test_feed_dict={x: x_test_batch, y_true: y_test_batch, keep_prob: 1.0},
+                                 checkpoint_path=os.path.join(checkpoint_dir, 'model.ckpt'))
 
 
 def predict(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=1):
 
     checkpoint_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/model')
 
-    data, category_ref = read_img_sets(img_dir + '/predict', img_size)
+    data, category_ref = image_loading.read_img_sets(img_dir + '/predict', img_size)
 
     flat_img_size = flat_img_shape(img_size, colour_channels)
 
