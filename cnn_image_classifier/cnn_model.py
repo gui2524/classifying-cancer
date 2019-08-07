@@ -2,6 +2,7 @@ import os
 import logging
 import tensorflow as tf
 import image_loading
+import numpy
 
 
 def flat_img_shape(img_size, channels):
@@ -117,17 +118,9 @@ def model(x, keep_prob, img_size, colour_channels, filter_size, neurons, num_cla
             num_filters=neurons
         )
 
-    with tf.name_scope('Conv3'):
-        layer_conv3 = new_conv_layer(
-            layer_conv2,
-            num_input_channels=neurons,
-            filter_size=filter_size,
-            num_filters=neurons
-        )
-
     with tf.name_scope('Fully_Connected1'):
 
-        flat_layer, num_features = flatten_layer(layer_conv3)
+        flat_layer, num_features = flatten_layer(layer_conv2)
 
         layer_fc1 = new_fully_connected_layer(
             flat_layer,
@@ -206,12 +199,12 @@ def restore_or_initialize(session, saver, checkpoint_dir):
             "Resource not found: CNN Model [%s]. Model will now be trained from scratch.",
             os.path.join(checkpoint_dir, 'model.ckpt'))
 
-        os.rmdir(checkpoint_dir)
+        #os.rmdir(checkpoint_dir)
         os.makedirs(checkpoint_dir)
         tf.global_variables_initializer().run()
 
 
-def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=10, training_epochs=50):
+def train(img_dir, model_dir, img_size=64, colour_channels=1, batch_size=64, training_epochs=20):
 
     log_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/logs/cnn_with_summaries')
     checkpoint_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/model')
@@ -233,6 +226,10 @@ def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=10, tra
     saver = tf.train.Saver()
     writer = tf.summary.FileWriter(log_dir, graph=tf.get_default_graph())
 
+    best_loss = 100000
+    stop = False
+    stopping_step = 0
+
     with tf.Session() as sess:
 
         restore_or_initialize(sess, saver, checkpoint_dir)
@@ -241,27 +238,57 @@ def train(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=10, tra
         print("\n\n" + str(batch_size))
         for epoch in range(training_epochs):
 
-            batch_count = int(data.train.num_examples / batch_size)
-            for i in range(batch_count):
+            if (stop):
+                break
 
+            batch_count = int(data.train.num_examples / batch_size)
+            med_count = 0
+            for i in range(batch_count):
+                med_acc = 0
+                med_val = 0
                 x_batch, y_true_batch, _, cls_batch = data.train.next_batch(batch_size)
+
                 x_batch = x_batch.reshape(batch_size, flat_img_size)
 
                 x_test_batch, y_test_batch, _, cls_test_batch = data.test.next_batch(batch_size)
                 x_test_batch = x_test_batch.reshape(batch_size, flat_img_size)
 
                 _, summary = sess.run([training_op, summary_op],
-                                      feed_dict={x: x_batch, y_true: y_true_batch, keep_prob: 0.5})
+                                      feed_dict={x: x_batch, y_true: y_true_batch, keep_prob: 1.0})
 
                 writer.add_summary(summary, epoch * batch_count + i)
 
-                if epoch % 5 == 0:
-                    log_progress(sess, saver, cost, accuracy, epoch,
-                                 test_feed_dict={x: x_test_batch, y_true: y_test_batch, keep_prob: 1.0},
-                                 checkpoint_path=os.path.join(checkpoint_dir, 'model.ckpt'))
+                val_loss = sess.run(cost, feed_dict={x: x_test_batch, y_true: y_test_batch, keep_prob: 1.0})
+                acc = sess.run(accuracy, feed_dict={x: x_test_batch, y_true: y_test_batch, keep_prob: 1.0})
+                msg = "Epoch {0} --- Accuracy: {1:>6.1%}, Validation Loss: {2:.3f}"
+                logging.info(msg.format(epoch, acc, val_loss))
+
+                med_acc += acc
+                med_val += val_loss
+
+                save_path = saver.save(sess, os.path.join(checkpoint_dir, 'model.ckpt'))
+                logging.debug("Creating resource: CNN Model [%s]", save_path)
+                med_count += 1
+
+            med_acc = med_acc/med_count
+            med_val = med_val / med_count
 
 
-def predict(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=1):
+            if (med_val < best_loss):
+                stopping_step = 0
+                best_loss = med_val
+            else:
+                stopping_step += 1
+
+            if (stopping_step >= 10):
+                stop = True
+                logging.info("Early stopping")
+
+            if (stop):
+                break
+
+
+def predict(img_dir, model_dir, img_size=64, colour_channels=1, batch_size=1):
 
     checkpoint_dir = os.path.join(os.path.abspath(model_dir), 'tensorflow/cnn/model')
 
@@ -291,13 +318,11 @@ def predict(img_dir, model_dir, img_size=64, colour_channels=3, batch_size=1):
             prediction = sess.run([tf.argmax(predict_op, dimension=1)], feed_dict={x: x_predict_batch, keep_prob: 1.0})
 
             if category_ref[prediction[0][0]] == cls_predict_batch[0]:
-                print("Acertou: ", category_ref[prediction[0][0]], cls_predict_batch[0])
                 acertou += 1
             else:
-                print("Errou: ", category_ref[prediction[0][0]], cls_predict_batch[0])
                 errou += 1
 
-        print("Porcentagem = %d", (acertou * 100 / (acertou + errou)))
+            print("Porcentagem = ", (acertou * 100 / (acertou + errou)))
 
 
 

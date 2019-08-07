@@ -51,5 +51,4 @@ class DataSet:
             assert batch_size <= self._num_examples
 
         end = self._index_in_epoch
-
         return self._images[start:end], self._labels[start:end], self._ids[start:end], self._cls[start:end]

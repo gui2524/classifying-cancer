@@ -4,7 +4,7 @@ import glob
 import numpy as np
 import logging
 import DataSet
-import random
+from sklearn.utils import shuffle
 
 
 def load_data(image_dir, image_size):
@@ -31,7 +31,7 @@ def load_data(image_dir, image_size):
         file_list = glob.glob(path)
 
         for file in file_list:
-            image = cv2.imread(file)
+            image = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
             image = cv2.resize(image, (image_size, image_size), cv2.INTER_LINEAR)
             images.append(image)
             label = np.zeros(len(training_dirs))
@@ -56,6 +56,7 @@ def read_img_sets(image_dir, image_size, validation_size=0):
     data_sets = DataSets()
 
     images, labels, ids, cls, cls_map = load_data(image_dir, image_size)
+    images, labels, ids, cls = shuffle(images, labels, ids, cls)
 
     if isinstance(validation_size, float):
         validation_size = int(validation_size * images.shape[0])
